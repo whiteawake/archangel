@@ -1,2 +1,2 @@
 # archangel
-Custom Arch install script.
+Various scripts for remote download.
