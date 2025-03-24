@@ -7,6 +7,7 @@ if [[ $? -eq 0 ]]; then
   yay -Yc --noconfirm && \
   yay -a --noconfirm && \
   echo 'Goodnight!'
+  shutdown now
 else
   echo "VeraCrypt failed to dismount. Script halted."
 fi
