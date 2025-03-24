@@ -1,0 +1,14 @@
+bolt-launcher
+discimagecreator-bin
+epson-inkjet-printer-escpr
+epson-printer-utility
+librewolf-bin
+makemkv
+minecraft-launcher
+mullvad-vpn
+nwipe
+pipes.sh
+qiv
+vscodium-bin
+yay
+yubico-authenticator-bin
