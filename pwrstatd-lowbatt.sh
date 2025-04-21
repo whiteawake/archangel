@@ -15,30 +15,33 @@ else
 	exitcode=$?
 	logstamp "WARNING: Sync command failed with exit code $exitcode. Data not secured."
 fi
-sleep 10
+sleep 1
 logstamp "Dismounting VeraCrypt volumes if present..."
-if veracrypt -d; then
+if veracrypt -df; then
 	logstamp "VeraCrypt dismount completed."
 else
 	exitcode=$?
 	logstamp "WARNING: VeraCrypt dismount failed with exit code $exitcode. Potentially unclean dismount."
 fi
+logstamp "Attempting to terminate processes using <?>..."
+fuser -km /mnt/<?>
+sleep 1
 logstamp "Dismounting <?> if present..."
-if umount -v /mnt/<?>; then
+if umount -vf /mnt/<?>; then
 	logstamp "<?> dismount completed."
 else
 	exitcode=$?
 	logstamp "WARNING: <?> failed to dismount with exit code $exitcode. If the drive was disconnected ignore this error, otherwise consider filesystem analysis and repair with xfs_repair."
 fi
-sleep 5
+sleep 1
 logstamp "Closing LUKS container..."
-if cryptsetup luksClose /dev/mapper/<?>; then
+if cryptsetup --force luksClose /dev/mapper/<?>; then
 	logstamp "LUKS container /dev/mapper/<?> closed."
 else
 	exitcode=$?
 	logstamp "WARNING: LUKS closure failed with exit code $exitcode. If the drive was disconnected ignore this error."
 fi
-sleep 3
+sleep 1
 logstamp "Stopping systemd-cryptsetup service..."
 if systemctl stop systemd-cryptsetup@<?>.service; then
 	logstamp "Service successfully/confirmed stopped."
@@ -47,7 +50,7 @@ else
 	logstamp "WARNING: Service stop failure with exit code $exitcode."
 fi
 logstamp "Spinning down drive..."
-if hdparm -y /dev/disk/by-id/<?>; then
+if hdparm -Y /dev/disk/by-id/<?>; then
 	logstamp "Drive /dev/disk/by-id/<?> successfully spun down."
 else
 	exitcode=$?
