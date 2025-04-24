@@ -46,14 +46,14 @@ else
 	logstamp "WARNING: VeraCrypt dismount failed with exit code $exitcode. Potentially unclean dismount."
 fi
 logstamp "Checking active process for /mnt/JARNSAXA..."
-if lsof +D /mnt/JARNSAXA > /dev/null 2>&1; then
+if lsof /mnt/JARNSAXA > /dev/null 2>&1; then
     logstamp "Process identified on /mnt/JARNSAXA, attempting to terminate..."
-    pids=$(lsof -t +D /mnt/JARNSAXA 2>/dev/null | grep -v '^$')
+    pids=$(lsof -t /mnt/JARNSAXA 2>/dev/null | grep -v '^$')
     if [ -n "$pids" ]; then
         logstamp "Sending SIGTERM (gentle) to process: $pids."
         kill $pids 2>/dev/null
         sleep 2
-        pidremain=$(lsof -t +D /mnt/JARNSAXA 2>/dev/null | grep -v '^$')
+        pidremain=$(lsof -t /mnt/JARNSAXA 2>/dev/null | grep -v '^$')
         if [ -n "$pidremain" ]; then
             logstamp "Pesky process pestering persistent, sending SIGKILL (rough!) to: $pidremain."
             kill -9 $pidremain 2>/dev/null
