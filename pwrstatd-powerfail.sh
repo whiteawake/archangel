@@ -21,7 +21,7 @@ if [ $? -eq 0 ]; then
 else
 	logstamp "Unable to visually notify user."
 fi
-logstamp "Playing alarm..."
+logstamp "Sounding alarm..."
 machinectl shell --uid=asha .host /usr/bin/pw-play /home/asha/Music/Samples/a300_fire_alarm.wav &
 if [ $? -eq 0 ]; then
 	alarmpid=$!
