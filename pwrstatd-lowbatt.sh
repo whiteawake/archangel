@@ -1,5 +1,13 @@
 #!/bin/bash
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root."
+    exit 1
+fi
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+logdir="/var/log/UPS"
+if [ ! -d "$logdir" ]; then
+    mkdir -p "$logdir"
+fi
 logfile="/var/log/UPS/ups_low-power_shutdown-${timestamp}.log"
 logstamp() {
 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] $1" >> "$logfile"
