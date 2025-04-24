@@ -14,8 +14,22 @@ logstamp() {
 }
 logstamp "UPS low battery protective shutdown sequence initiated..."
 echo "WARNING: THE UPS BATTERY THRESHOLD HAS BEEN MET (<35%). THE SYSTEM PROTECTIVE SHUTDOWN SEQUENCE HAS BEEN INITIATED. DO NOT TOUCH THE COMPUTER AT THIS STAGE." | wall
+logstamp "Notifying user..." 
 systemd-run --machine=asha@.host --user notify-send --expire-time=0 --urgency=critical "WARNING: UPS battery threshold met (<35%). Protective shutdown sequence initiated." --icon=battery-caution --category=system.power &
-logstamp "Playing alarm..." && machinectl shell --uid=asha .host /usr/bin/pw-play /home/asha/Music/Samples/st._louis_mo_tornado_warning.wav &
+if [ $? -eq 0 ]; then
+	warnpid=$!
+	logstamp "User notified (PID: $warnpid)."
+else
+	logstamp "Unable to visually notify user."
+fi
+logstamp "Sounding alarm..."
+machinectl shell --uid=asha .host /usr/bin/pw-play /home/asha/Music/Samples/st._louis_mo_tornado_warning.wav &
+if [ $? -eq 0 ]; then
+	alarmpid=$!
+	logstamp "Alarm ringing (PID: $alarmpid)."
+else
+	logstamp "Unable to sound alarm."
+fi
 logstamp "Syncing filesystems..."
 if sync; then
 	logstamp "Sync complete."
