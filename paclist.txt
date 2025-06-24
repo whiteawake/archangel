@@ -856,7 +856,6 @@ p11-kit
 pacman
 pacman-contrib
 pacman-mirrorlist
-paho-mqtt-c
 pahole
 pam
 pambase
