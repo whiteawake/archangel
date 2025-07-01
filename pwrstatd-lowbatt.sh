@@ -107,5 +107,5 @@ else
 fi
 logstamp "UPS low battery protective shutdown sequence completed. Proceeding to shutdown..."
 machinectl shell --uid=asha .host /usr/bin/pw-play /home/asha/Music/Samples/windows_xp_shutdown.wav &
-echo "Shleep now..."
+echo "Sleep now..."
 exit 0
