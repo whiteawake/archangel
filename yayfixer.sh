@@ -6,7 +6,7 @@ set -euo pipefail
 # ─────────────────────────────────────────────
 
 AUR_PACKAGES_FILE="$HOME/aur-packages.txt"
-ARCH_MIRROR="https://mirror.aarnet.edu.au/pub/archlinux/\$repo/os/\$arch"
+ARCH_MIRROR="https://mirror.aarnet.edu.au/pub/archlinux"
 
 # ── Helpers ───────────────────────────────────
 
@@ -15,7 +15,7 @@ success() { echo "[OK]    $*"; }
 warn()    { echo "[WARN]  $*"; }
 die()     { echo "[ERROR] $*"; exit 1; }
 
-# ── Step 1: Save AUR packages (run before update) ─
+# ── Save AUR packages (run before update) ─────
 
 if [[ "${1:-}" == "--save" ]]; then
     if command -v yay &>/dev/null; then
@@ -27,59 +27,82 @@ if [[ "${1:-}" == "--save" ]]; then
     exit 0
 fi
 
-# ── Step 2: Disable read-only filesystem ──────
+# ── Step 1: Disable read-only filesystem ──────
 
 info "Disabling read-only filesystem..."
 sudo steamos-readonly disable
 
-# ── Step 3: Configure pacman with Arch repos ──
+# ── Step 2: Replace mirrorlist ────────────────
 
-info "Configuring Arch Linux mirror..."
+info "Writing standard Arch mirrorlist..."
+sudo tee /etc/pacman.d/mirrorlist > /dev/null <<EOF
+Server = ${ARCH_MIRROR}/\$repo/os/\$arch
+EOF
+success "Mirrorlist written."
 
-# Write mirrorlist if it doesn't already have our mirror
-if ! grep -q "aarnet" /etc/pacman.d/mirrorlist 2>/dev/null; then
-    echo "Server = $ARCH_MIRROR" | sudo tee /etc/pacman.d/mirrorlist > /dev/null
-    success "Mirrorlist updated."
-else
-    info "AARNet mirror already present, skipping."
-fi
+# ── Step 3: Replace pacman.conf entirely ──────
+# Valve's versioned repos (jupiter-3.7, holo-3.7 etc.) don't exist on
+# standard Arch mirrors and cause sync failures. We replace the whole
+# config with a clean standard Arch one for the duration of this script.
 
-# Add [core] and [extra] repos to pacman.conf if not already present
-if ! grep -q "^\[core\]" /etc/pacman.conf; then
-    info "Adding core and extra repos to pacman.conf..."
-    sudo tee -a /etc/pacman.conf > /dev/null <<EOF
+info "Writing standard Arch pacman.conf..."
+sudo tee /etc/pacman.conf > /dev/null <<'EOF'
+#
+# /etc/pacman.conf — replaced by yayfix.sh for build purposes
+#
+
+[options]
+DBPath      = /var/lib/pacman/
+CacheDir    = /var/cache/pacman/pkg/
+LogFile     = /var/log/pacman.log
+GPGDir      = /etc/pacman.d/gnupg/
+HookDir     = /etc/pacman.d/hooks/
+HoldPkg     = pacman glibc
+Architecture = auto
+Color
+CheckSpace
+ParallelDownloads = 10
+SigLevel    = Required DatabaseOptional
+LocalFileSigLevel = Optional
 
 [core]
 Include = /etc/pacman.d/mirrorlist
 
 [extra]
 Include = /etc/pacman.d/mirrorlist
-EOF
-    success "Repos added to pacman.conf."
-else
-    info "Arch repos already present in pacman.conf, skipping."
-fi
 
-# ── Step 4: Sync and install build dependencies ─
+[community]
+Include = /etc/pacman.d/mirrorlist
+
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+EOF
+success "pacman.conf written."
+
+# ── Step 4: Initialise keyring and sync ───────
+
+info "Initialising pacman keyring..."
+sudo pacman-key --init
+sudo pacman-key --populate archlinux
 
 info "Syncing package databases..."
 sudo pacman -Syy
 
+# ── Step 5: Install build dependencies ────────
+
 info "Installing build dependencies..."
 sudo pacman -S --needed --noconfirm base-devel gcc go glibc git
 
-# ── Step 5: Remove any broken yay install ─────
+# ── Step 6: Remove any broken yay install ─────
 
-if pacman -Q yay &>/dev/null; then
-    info "Removing existing yay installation..."
-    sudo pacman -Rns --noconfirm yay 2>/dev/null || true
-fi
-if pacman -Q yay-bin &>/dev/null; then
-    info "Removing existing yay-bin installation..."
-    sudo pacman -Rns --noconfirm yay-bin 2>/dev/null || true
-fi
+for pkg in yay yay-bin; do
+    if pacman -Q "$pkg" &>/dev/null; then
+        info "Removing existing $pkg installation..."
+        sudo pacman -Rns --noconfirm "$pkg" 2>/dev/null || true
+    fi
+done
 
-# ── Step 6: Build yay from source ────────────
+# ── Step 7: Build yay from source ────────────
 
 info "Building yay from source..."
 rm -rf /tmp/yay
@@ -94,21 +117,21 @@ info "Verifying libalpm linkage..."
 ldd "$(which yay)" | grep alpm
 success "yay installed: $(yay --version)"
 
-# ── Step 7: Reinstall saved AUR packages ──────
+# ── Step 8: Reinstall saved AUR packages ──────
 
 if [ -f "$AUR_PACKAGES_FILE" ]; then
-    PACKAGES=$(cat "$AUR_PACKAGES_FILE" | tr '\n' ' ')
     PACKAGE_COUNT=$(wc -l < "$AUR_PACKAGES_FILE")
+    PACKAGES=$(cat "$AUR_PACKAGES_FILE" | tr '\n' ' ')
     info "Reinstalling $PACKAGE_COUNT saved AUR packages..."
     # shellcheck disable=SC2086
     yay -S --needed --noconfirm $PACKAGES
     success "AUR packages reinstalled."
 else
-    warn "No saved AUR package list found at $AUR_PACKAGES_FILE."
+    warn "No saved AUR package list found at $AUR_PACKAGES_FILE"
     warn "Run '$0 --save' before your next SteamOS update to save your package list."
 fi
 
-# ── Step 8: Re-enable read-only filesystem ────
+# ── Step 9: Re-enable read-only filesystem ────
 
 info "Re-enabling read-only filesystem..."
 sudo steamos-readonly enable
