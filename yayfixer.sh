@@ -40,19 +40,20 @@ Server = ${ARCH_MIRROR}/\$repo/os/\$arch
 EOF
 success "Mirrorlist written."
 
-# ── Step 3: Replace pacman.conf entirely ──────
-# Valve's versioned repos (jupiter-3.7, holo-3.7 etc.) don't exist on
-# standard Arch mirrors and cause sync failures. We replace the whole
-# config with a clean standard Arch one for the duration of this script.
+# ── Step 3: Replace pacman.conf ───────────────
+# Keep Valve's DBPath (/usr/lib/holo/pacmandb/) as that directory
+# actually exists on SteamOS. Replace all the versioned Valve repos
+# (jupiter-3.7, holo-3.7 etc.) with standard Arch repo names which
+# exist on standard mirrors.
 
-info "Writing standard Arch pacman.conf..."
+info "Writing pacman.conf with Valve DBPath and standard Arch repos..."
 sudo tee /etc/pacman.conf > /dev/null <<'EOF'
 #
 # /etc/pacman.conf — replaced by yayfix.sh for build purposes
 #
 
 [options]
-DBPath      = /var/lib/pacman/
+DBPath      = /usr/lib/holo/pacmandb/
 CacheDir    = /var/cache/pacman/pkg/
 LogFile     = /var/log/pacman.log
 GPGDir      = /etc/pacman.d/gnupg/
