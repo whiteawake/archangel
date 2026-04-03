@@ -30,9 +30,19 @@ fi
 # ── Step 1: Disable read-only filesystem ──────
 
 info "Disabling read-only filesystem..."
-sudo steamos-readonly disable
+sudo steamos-readonly disable || true
 
-# ── Step 2: Replace mirrorlist ────────────────
+# ── Step 2: Bind-mount pacman db path ─────────
+# pacman v7 on SteamOS is hardcoded to /var/lib/pacman/ but Valve's
+# actual database lives at /usr/lib/holo/pacmandb/
+
+if ! mountpoint -q /var/lib/pacman; then
+    info "Bind-mounting Valve pacman database to /var/lib/pacman/..."
+    sudo mkdir -p /var/lib/pacman
+    sudo mount --bind /usr/lib/holo/pacmandb /var/lib/pacman
+fi
+
+# ── Step 3: Replace mirrorlist ────────────────
 
 info "Writing standard Arch mirrorlist..."
 sudo tee /etc/pacman.d/mirrorlist > /dev/null <<EOF
@@ -40,20 +50,18 @@ Server = ${ARCH_MIRROR}/\$repo/os/\$arch
 EOF
 success "Mirrorlist written."
 
-# ── Step 3: Replace pacman.conf ───────────────
-# Keep Valve's DBPath (/usr/lib/holo/pacmandb/) as that directory
-# actually exists on SteamOS. Replace all the versioned Valve repos
-# (jupiter-3.7, holo-3.7 etc.) with standard Arch repo names which
-# exist on standard mirrors.
+# ── Step 4: Replace pacman.conf ───────────────
+# Remove [community] — it was merged into [extra] in Arch in 2023
+# and returns a 404 on all mirrors.
 
-info "Writing pacman.conf with Valve DBPath and standard Arch repos..."
+info "Writing pacman.conf..."
 sudo tee /etc/pacman.conf > /dev/null <<'EOF'
 #
 # /etc/pacman.conf — replaced by yayfix.sh for build purposes
 #
 
 [options]
-DBPath      = /usr/lib/holo/pacmandb/
+DBPath      = /var/lib/pacman/
 CacheDir    = /var/cache/pacman/pkg/
 LogFile     = /var/log/pacman.log
 GPGDir      = /etc/pacman.d/gnupg/
@@ -72,15 +80,12 @@ Include = /etc/pacman.d/mirrorlist
 [extra]
 Include = /etc/pacman.d/mirrorlist
 
-[community]
-Include = /etc/pacman.d/mirrorlist
-
 [multilib]
 Include = /etc/pacman.d/mirrorlist
 EOF
 success "pacman.conf written."
 
-# ── Step 4: Initialise keyring and sync ───────
+# ── Step 5: Initialise keyring and sync ───────
 
 info "Initialising pacman keyring..."
 sudo pacman-key --init
@@ -89,12 +94,12 @@ sudo pacman-key --populate archlinux
 info "Syncing package databases..."
 sudo pacman -Syy
 
-# ── Step 5: Install build dependencies ────────
+# ── Step 6: Install build dependencies ────────
 
 info "Installing build dependencies..."
 sudo pacman -S --needed --noconfirm base-devel gcc go glibc git
 
-# ── Step 6: Remove any broken yay install ─────
+# ── Step 7: Remove any broken yay install ─────
 
 for pkg in yay yay-bin; do
     if pacman -Q "$pkg" &>/dev/null; then
@@ -103,7 +108,7 @@ for pkg in yay yay-bin; do
     fi
 done
 
-# ── Step 7: Build yay from source ────────────
+# ── Step 8: Build yay from source ────────────
 
 info "Building yay from source..."
 rm -rf /tmp/yay
@@ -118,7 +123,7 @@ info "Verifying libalpm linkage..."
 ldd "$(which yay)" | grep alpm
 success "yay installed: $(yay --version)"
 
-# ── Step 8: Reinstall saved AUR packages ──────
+# ── Step 9: Reinstall saved AUR packages ──────
 
 if [ -f "$AUR_PACKAGES_FILE" ]; then
     PACKAGE_COUNT=$(wc -l < "$AUR_PACKAGES_FILE")
@@ -132,7 +137,7 @@ else
     warn "Run '$0 --save' before your next SteamOS update to save your package list."
 fi
 
-# ── Step 9: Re-enable read-only filesystem ────
+# ── Step 10: Re-enable read-only filesystem ───
 
 info "Re-enabling read-only filesystem..."
 sudo steamos-readonly enable
